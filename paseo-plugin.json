@@ -1,0 +1,7 @@
+{
+  "id": "unity-workspace",
+  "description": "Unity cockpit: project manager, build launcher, scene launcher, ParrelSync clones, and cache cleaner.",
+  "requirements": {
+    "paseo": ">=0.10.2"
+  }
+}
