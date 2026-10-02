@@ -18,18 +18,20 @@ import {
   OpenProjectRpc,
   OpenSceneRpc,
   ProjectStatusRpc,
+  QuickPlayRpc,
   ScanCacheRpc,
   SetCloneArgumentRpc,
   StartBuildRpc,
 } from "./shared/contracts";
 import { unitySettings, type UnitySettings } from "./shared/settings";
-import { buildOptions, launchArtifact, startBuild } from "./server/build";
+import { buildOptions, launchArtifact, quickPlay, startBuild } from "./server/build";
 import { cleanCache, scanCache } from "./server/cache";
 import { createClone, deleteClone, installParrelSync, listClones, openInstances, setCloneArgument } from "./server/clones";
 import { cancelAll, cancelJob, listJobs } from "./server/jobs";
 import { listProjects, openProject, projectStatus } from "./server/manager";
 import { detectProjects } from "./server/project";
 import { launchProjectPlayer, listPlayers } from "./server/players";
+import { splitCommandLine } from "./server/processes";
 import { listScenes, openScene } from "./server/scenes";
 
 export default function contribute(server: PluginServerContext) {
@@ -54,6 +56,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(BuildOptionsRpc, async ({ projectPath }) => buildOptions(projectPath, await settings()));
   server.handle(StartBuildRpc, async ({ projectPath, recipe }) => startBuild(projectPath, recipe, await settings()));
   server.handle(LaunchArtifactRpc, ({ jobId }) => launchArtifact(jobId));
+  server.handle(QuickPlayRpc, async ({ projectPath, args, instances, force }) => quickPlay(projectPath, splitCommandLine(args), instances, force, await settings()));
   server.handle(ListPlayersRpc, async ({ projectPath }) => listPlayers(projectPath, await settings()));
   server.handle(LaunchPlayerRpc, async ({ projectPath, playerPath, args, instances }) => launchProjectPlayer(projectPath, playerPath, args, instances, await settings()));
 

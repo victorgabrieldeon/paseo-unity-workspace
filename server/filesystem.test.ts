@@ -148,3 +148,23 @@ describe("players", () => {
     expect(players.map((player) => `${player.folder}/${player.name}`).sort()).toEqual(["Linux/Game.x86_64", "Windows/Game.exe"]);
   });
 });
+
+describe("quick play", () => {
+  test("tracks the newest change in the folders that feed a build, through a clone's symlinked Assets", async () => {
+    const { newestSourceChange } = await import("./build");
+    const { utimes } = await import("node:fs/promises");
+    const old = new Date("2020-01-01T00:00:00Z");
+    for (const path of ["Assets", "Assets/Scenes", "Assets/Scenes/Menu.unity", "Assets/Scenes/Combat.unity", "Assets/Player.cs", "Packages", "Packages/manifest.json", "ProjectSettings", "ProjectSettings/ProjectVersion.txt", "ProjectSettings/EditorBuildSettings.asset"]) {
+      await utimes(join(project, path), old, old);
+    }
+    expect(await newestSourceChange(project)).toBe(old.getTime());
+    const edited = new Date("2024-05-05T00:00:00Z");
+    await utimes(join(project, "Assets", "Player.cs"), edited, edited);
+    expect(await newestSourceChange(project)).toBe(edited.getTime());
+
+    const clone = join(root, "clone");
+    await mkdir(clone);
+    await symlink(join(project, "Assets"), join(clone, "Assets"));
+    expect(await newestSourceChange(clone)).toBe(edited.getTime());
+  });
+});

@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { BuildOptionsRpc, CancelJobRpc, LaunchArtifactRpc, LaunchPlayerRpc, ListJobsRpc, ListPlayersRpc, StartBuildRpc, type BuildRecipe, type Job, type Player, type UnityProject } from "../shared/contracts";
 import { formatDuration } from "../shared/format";
+import { WINDOWED_ARGS, QuickPlayCard } from "./play";
 import { PanelShell, isProjectOpen, statusKey, useProjectStatus } from "./project";
 import { Button, Chip, LogView, Section, StatusDot, errorMessage, type Styles } from "./ui";
 
@@ -72,7 +73,8 @@ function BuildLauncher({ project, theme, styles }: { readonly project: UnityProj
           </View>
         </View>
       ) : null}
-      {running ? <RunningJob job={running} project={project} theme={theme} styles={styles} /> : null}
+      <QuickPlayCard project={project} theme={theme} styles={styles} />
+      {running && running.title !== "Jogar" ? <RunningJob job={running} project={project} theme={theme} styles={styles} /> : null}
       <Players project={project} lastFinished={history[0]?.endedAt ?? null} theme={theme} styles={styles} />
       {optionsQuery.isPending ? <ActivityIndicator color={theme.colors.foregroundMuted} /> : null}
       {optionsQuery.error ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage(optionsQuery.error)}</Text> : null}
@@ -220,7 +222,6 @@ function FinishedJob({ job, theme, styles }: { readonly job: Job; readonly theme
   );
 }
 
-const WINDOWED_ARGS = "-screen-fullscreen 0 -screen-width 1280 -screen-height 720";
 const PLATFORM_LABELS: Record<Player["platform"], string> = { linux: "Linux", windows: "Windows", macos: "macOS" };
 
 function Players({ project, lastFinished, theme, styles }: { readonly project: UnityProject; readonly lastFinished: string | null; readonly theme: PluginTheme; readonly styles: Styles }) {

@@ -7,6 +7,7 @@ import { Pressable, Text, View } from "react-native";
 import { ListScenesRpc, type UnityProject } from "../shared/contracts";
 import { useJobs } from "./build";
 import { PANELS, openToolPanel, type PanelId } from "./navigation";
+import { QuickPlayCard } from "./play";
 import { PanelShell, isProjectOpen, useProjectStatus } from "./project";
 import { SceneRow, scenesKey } from "./scenes";
 import { Chip, Section, type Styles } from "./ui";
@@ -45,6 +46,7 @@ function Overview({ project, workspaceId, compact, theme, styles }: {
 
   return (
     <>
+      <QuickPlayCard project={project} theme={theme} styles={styles} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         {TOOLS.map((tool) => (
           <Pressable

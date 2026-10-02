@@ -4,10 +4,11 @@ import { CachePanel } from "./client/cache";
 import { ClonesPanel } from "./client/clones";
 import { PANELS, setPanelOpener, type PanelId } from "./client/navigation";
 import { OverviewPanel } from "./client/overview";
+import { WINDOWED_ARGS } from "./client/play";
 import { ProjectsSurface } from "./client/projects";
 import { ScenesPanel } from "./client/scenes";
 import { SettingsScreen } from "./client/settings";
-import { BuildOptionsRpc, DetectProjectsRpc, ListScenesRpc, OpenProjectRpc, OpenSceneRpc, StartBuildRpc, type BuildRecipe, type UnityProject } from "./shared/contracts";
+import { BuildOptionsRpc, DetectProjectsRpc, ListScenesRpc, OpenProjectRpc, OpenSceneRpc, QuickPlayRpc, StartBuildRpc, type BuildRecipe, type UnityProject } from "./shared/contracts";
 
 const PANEL_ALIASES: Record<string, PanelId> = {
   "": PANELS.overview,
@@ -90,6 +91,31 @@ export default function contribute(client: PluginClientContext) {
         const panel = PANEL_ALIASES[args.trim().toLowerCase()];
         if (panel === undefined) throw new Error(`Use /unity, /unity build, /unity cenas, /unity clones ou /unity cache.`);
         openPanel(panel);
+      },
+    }),
+    client.addCommandCenterItem({
+      id: "play",
+      title: "Unity: jogar (sem abrir o Editor)",
+      icon: "Play",
+      keywords: ["unity", "play", "jogar", "rodar"],
+      context: "workspace",
+      async onSelect(context) {
+        const project = await workspaceProject(context);
+        await context.rpc(QuickPlayRpc, { projectPath: project.path, args: WINDOWED_ARGS, instances: 1, force: false });
+        context.openPanel(PANELS.overview);
+      },
+    }),
+    client.addSlashCommand({
+      name: "unity-play",
+      description: "Joga o projeto sem abrir o Unity (build rápido + abre o jogo)",
+      argumentHint: "[jogadores 1-4]",
+      context: "workspace",
+      async onSubmit(context) {
+        const instances = context.args.trim() === "" ? 1 : Number(context.args.trim());
+        if (!Number.isInteger(instances) || instances < 1 || instances > 4) throw new Error("Use /unity-play ou /unity-play 2 (até 4 jogadores).");
+        const project = await workspaceProject(context);
+        await context.rpc(QuickPlayRpc, { projectPath: project.path, args: WINDOWED_ARGS, instances, force: false });
+        context.openPanel(PANELS.overview);
       },
     }),
     client.addSlashCommand({

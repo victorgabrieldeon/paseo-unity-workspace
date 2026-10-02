@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir } from "node:fs/promises";
+import { lstat, mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { BuildMethod, BuildProfile, BuildRecipe, BuildTarget, Job } from "../shared/contracts";
 import type { UnitySettings } from "../shared/settings";
@@ -12,6 +12,7 @@ import { launchPlayer, newestPlayerSince } from "./players";
 import { requireEditor } from "./manager";
 import { editorsForProject, forgetRunningEditors } from "./processes";
 import { requireProject } from "./project";
+import { parseBuildScenes } from "./scenes";
 
 const MAX_SOURCE_FILES = 6_000;
 const BUILD_API = /BuildPipeline\.BuildPlayer|BuildPlayerOptions|BuildPlayerWithProfileOptions/u;
@@ -113,7 +114,7 @@ async function collectFiles(directory: string, relative: string, accept: (name: 
 
 // ── Running builds ────────────────────────────────────────────────────
 
-export async function startBuild(projectPath: string, recipe: BuildRecipe, settings: UnitySettings): Promise<Job> {
+async function prepareBuild(projectPath: string, settings: UnitySettings) {
   const project = await requireProject(projectPath);
   const busy = runningJob(project.path);
   if (busy !== null) throw new Error(`Já existe uma tarefa em andamento neste projeto: ${busy.job.title}.`);
@@ -122,7 +123,11 @@ export async function startBuild(projectPath: string, recipe: BuildRecipe, setti
     throw new Error(`Feche o Unity Editor de ${project.name} (PID ${holders.map((holder) => holder.pid).join(", ")}) antes de buildar: o Unity não abre o mesmo projeto em duas instâncias.`);
   }
   const editor = await requireEditor(project.editorVersion, settings);
-  const product = safeFileName(project.productName ?? project.name);
+  return { project, editor, product: safeFileName(project.productName ?? project.name) };
+}
+
+export async function startBuild(projectPath: string, recipe: BuildRecipe, settings: UnitySettings): Promise<Job> {
+  const { project, editor, product } = await prepareBuild(projectPath, settings);
   const outputRoot = resolve(project.path, settings.buildOutputDir);
   if (!isInside(project.path, outputRoot)) throw new Error("A pasta de saída dos builds precisa ficar dentro do projeto.");
 
@@ -156,20 +161,32 @@ export async function startBuild(projectPath: string, recipe: BuildRecipe, setti
     }
   }
 
-  const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
-  const logPath = join(project.path, "Logs", `paseo-build-${safeFileName(title).toLowerCase().replace(/\s+/gu, "-")}-${stamp}.log`);
-  await mkdir(dirname(logPath), { recursive: true });
-  if (artifactPath !== null) await mkdir(recipe.kind === "profile" && !/\.\w+$/u.test(artifactPath) ? artifactPath : dirname(artifactPath), { recursive: true });
+  const afterSuccess = recipe.kind === "method"
+    ? async (record: JobRecord) => {
+        record.job.artifactPath = await newestPlayerSince(outputRoot, Date.parse(record.job.startedAt)).catch(() => null);
+        return "Build concluído.";
+      }
+    : null;
+  return beginBuild(project.path, editor.executable, title, args, artifactPath, afterSuccess);
+}
 
-  const record = createJob("build", project.path, title, { logPath, artifactPath });
-  const fullArgs = ["-batchmode", "-quit", "-projectPath", project.path, "-logFile", "-", ...args];
-  appendLog(record, `$ ${editor.executable} ${fullArgs.join(" ")}`);
-  runUnity(record, editor.executable, fullArgs, project.path, logPath, recipe.kind === "method" ? outputRoot : null);
+type AfterSuccess = ((record: JobRecord) => Promise<string>) | null;
+
+async function beginBuild(projectPath: string, executable: string, title: string, args: string[], artifactPath: string | null, afterSuccess: AfterSuccess): Promise<Job> {
+  const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
+  const logPath = join(projectPath, "Logs", `paseo-build-${safeFileName(title).toLowerCase().replace(/\s+/gu, "-")}-${stamp}.log`);
+  await mkdir(dirname(logPath), { recursive: true });
+  if (artifactPath !== null) await mkdir(/\.\w+$/u.test(artifactPath) ? dirname(artifactPath) : artifactPath, { recursive: true });
+
+  const record = createJob("build", projectPath, title, { logPath, artifactPath });
+  const fullArgs = ["-batchmode", "-quit", "-projectPath", projectPath, "-logFile", "-", ...args];
+  appendLog(record, `$ ${executable} ${fullArgs.join(" ")}`);
+  runUnity(record, executable, fullArgs, projectPath, logPath, afterSuccess);
   forgetRunningEditors();
   return snapshot(record);
 }
 
-function runUnity(record: JobRecord, executable: string, args: string[], cwd: string, logPath: string, findArtifactIn: string | null): void {
+function runUnity(record: JobRecord, executable: string, args: string[], cwd: string, logPath: string, afterSuccess: AfterSuccess): void {
   const log = createWriteStream(logPath, { flags: "a" });
   const child = spawn(executable, args, { cwd, env: childEnv(), stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32" });
   record.child = child;
@@ -198,16 +215,14 @@ function runUnity(record: JobRecord, executable: string, args: string[], cwd: st
     forgetRunningEditors();
     if (record.job.state !== "running") return;
     if (code === 0) {
-      if (findArtifactIn === null) {
+      if (afterSuccess === null) {
         finishJob(record, "succeeded", "Build concluído.", 0);
         return;
       }
-      void newestPlayerSince(findArtifactIn, Date.parse(record.job.startedAt))
-        .catch(() => null)
-        .then((artifact) => {
-          record.job.artifactPath = artifact;
-          finishJob(record, "succeeded", "Build concluído.", 0);
-        });
+      void afterSuccess(record).then(
+        (message) => finishJob(record, "succeeded", message, 0),
+        (error: unknown) => finishJob(record, "succeeded", `Build concluído, mas: ${error instanceof Error ? error.message : String(error)}`, 0),
+      );
       return;
     }
     const exit = signal === null ? `Unity encerrou com código ${code ?? "?"}` : `Unity encerrou com sinal ${signal}`;
@@ -224,6 +239,81 @@ export async function launchArtifact(jobId: string): Promise<{ pid: number | nul
   if (!(await exists(artifact))) throw new Error(`Executável não encontrado: ${artifact}`);
   const { pids, message } = await launchPlayer(artifact);
   return { pid: pids[0] ?? null, message };
+}
+
+// ── Quick play ────────────────────────────────────────────────────────
+
+const QUICK_PLAY_FOLDER = "QuickPlay";
+const QUICK_PLAY_STAMP = ".built-at";
+
+export function hostTarget(platform: NodeJS.Platform = process.platform): BuildTarget | null {
+  if (platform === "linux") return "StandaloneLinux64";
+  if (platform === "win32") return "StandaloneWindows64";
+  if (platform === "darwin") return "StandaloneOSX";
+  return null;
+}
+
+/**
+ * "Jogar" without opening the Editor: a batch-mode player build for this machine into <Builds>/QuickPlay
+ * (Unity refuses to build into Library),
+ * then launch. When nothing in Assets, Packages, or ProjectSettings changed since the last quick build, it
+ * launches the existing player right away.
+ */
+export async function quickPlay(projectPath: string, launchArgs: readonly string[], instances: number, force: boolean, settings: UnitySettings): Promise<{ job: Job | null; message: string }> {
+  const target = hostTarget();
+  if (target === null) throw new Error(`Plataforma ${process.platform} não suportada para Jogar.`);
+  const spec = TARGETS[target];
+  const project = await requireProject(projectPath);
+  const product = safeFileName(project.productName ?? project.name);
+  const outputRoot = resolve(project.path, settings.buildOutputDir);
+  if (!isInside(project.path, outputRoot)) throw new Error("A pasta de saída dos builds precisa ficar dentro do projeto.");
+  const folder = join(outputRoot, QUICK_PLAY_FOLDER);
+  const artifactPath = join(folder, `${product}${spec.extension}`);
+  const stampPath = join(folder, QUICK_PLAY_STAMP);
+
+  if (!force && (await exists(artifactPath))) {
+    const builtAt = Number((await readTextOrNull(stampPath))?.trim() ?? Number.NaN);
+    if (Number.isFinite(builtAt) && (await newestSourceChange(project.path)) <= builtAt) {
+      const { message } = await launchPlayer(artifactPath, launchArgs, instances);
+      return { job: null, message: `Nada mudou desde o último build. ${message}` };
+    }
+  }
+
+  const buildSettings = await readTextOrNull(join(project.path, "ProjectSettings", "EditorBuildSettings.asset"));
+  if (buildSettings === null || !parseBuildScenes(buildSettings).some((scene) => scene.enabled)) {
+    throw new Error("Nenhuma cena ativa no Build Settings. Adicione a cena inicial em File → Build Profiles (Scene List) antes de jogar.");
+  }
+  const { editor } = await prepareBuild(project.path, settings);
+  if (!editor.modules.includes(spec.module)) throw new Error(`O módulo ${spec.module} não está instalado no Unity ${editor.version}.`);
+  const job = await beginBuild(project.path, editor.executable, "Jogar", ["-buildTarget", spec.buildTarget, spec.flag, artifactPath], artifactPath, async () => {
+    // Stamp after Unity exits: files Unity itself rewrites while quitting must not count as user changes.
+    await writeFile(stampPath, String(Date.now()), "utf8");
+    const { message } = await launchPlayer(artifactPath, launchArgs, instances);
+    return `Build concluído. ${message}`;
+  });
+  return { job, message: "Buildando para jogar…" };
+}
+
+/** Latest modification under the folders that feed a player build; symlinked top-level folders (clones) are followed. */
+export async function newestSourceChange(projectPath: string): Promise<number> {
+  let newest = 0;
+  const visit = async (path: string, top: boolean): Promise<void> => {
+    let info;
+    try {
+      info = top ? await stat(path) : await lstat(path);
+    } catch {
+      return;
+    }
+    if (info.isSymbolicLink()) return;
+    newest = Math.max(newest, info.mtimeMs);
+    if (!info.isDirectory()) return;
+    const entries = await readdir(path);
+    for (let index = 0; index < entries.length; index += 64) {
+      await Promise.all(entries.slice(index, index + 64).filter((name) => !name.startsWith(".") && !name.endsWith("~")).map((name) => visit(join(path, name), false)));
+    }
+  };
+  for (const folder of ["Assets", "Packages", "ProjectSettings"]) await visit(join(projectPath, folder), true);
+  return newest;
 }
 
 export function safeFileName(value: string): string {

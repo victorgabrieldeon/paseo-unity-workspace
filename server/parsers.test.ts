@@ -160,3 +160,13 @@ describe("players", () => {
     expect(runnableHere("windows", "linux")).toBe(false);
   });
 });
+
+describe("quick play target", () => {
+  test("builds for the machine it runs on", async () => {
+    const { hostTarget } = await import("./build");
+    expect(hostTarget("linux")).toBe("StandaloneLinux64");
+    expect(hostTarget("win32")).toBe("StandaloneWindows64");
+    expect(hostTarget("darwin")).toBe("StandaloneOSX");
+    expect(hostTarget("aix")).toBeNull();
+  });
+});

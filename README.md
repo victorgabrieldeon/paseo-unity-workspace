@@ -2,6 +2,8 @@
 
 Cockpit Unity para o Paseo. Um plugin com cinco ferramentas que compartilham a detecção de projeto, editor e processos.
 
+**▶ Jogar sem abrir o Unity**: nas abas **Unity** e **Unity Build** (ou `/unity-play [jogadores]`). Faz um build incremental em batch mode para esta máquina em `Builds/QuickPlay/` e abre o jogo, em janela e com 1 a 4 jogadores. Se nada mudou em Assets, Packages ou ProjectSettings desde o último Jogar, abre na hora, sem buildar.
+
 | Ferramenta | Onde fica | O que faz |
 | --- | --- | --- |
 | **Project Manager** | Sidebar → **Unity** e aba **Unity** do workspace | Lista projetos (Unity Hub, workspaces do Paseo, pastas configuradas), versão do editor e se está instalado, se o projeto está aberto, git, pacotes relevantes. Abre no Unity ou como workspace do Paseo. |
@@ -12,9 +14,10 @@ Cockpit Unity para o Paseo. Um plugin com cinco ferramentas que compartilham a d
 
 ## Atalhos
 
-- **Ctrl/⌘K**: `Unity: projetos`, `Unity: painel do projeto`, `Unity: build`, `Unity: cenas`, `Unity: clones ParrelSync`, `Unity: limpar cache`, `Unity: abrir projeto no Editor`, `Unity: configurações`.
+- **Ctrl/⌘K**: `Unity: projetos`, `Unity: painel do projeto`, `Unity: build`, `Unity: cenas`, `Unity: clones ParrelSync`, `Unity: limpar cache`, `Unity: jogar (sem abrir o Editor)`, `Unity: abrir projeto no Editor`, `Unity: configurações`.
 - Composer:
   - `/unity [build|cenas|clones|cache]` abre o painel.
+  - `/unity-play [1-4]` joga sem abrir o Editor.
   - `/unity-open` abre o projeto no Editor.
   - `/unity-scene <nome>` abre o Unity na cena (busca pelo nome; cenas do build primeiro).
   - `/unity-build [linux|windows|mac|<método>|<perfil>]` inicia o build e abre o painel. `/unity-build dev` pega o primeiro método com "dev".

@@ -210,6 +210,12 @@ export const LaunchPlayerRpc = defineRpc({
   output: z.object({ pids: z.array(z.number().int().nullable()), message: z.string() }),
 });
 
+export const QuickPlayRpc = defineRpc({
+  name: "unity.play",
+  input: ProjectInputSchema.extend({ args: z.string().max(500), instances: z.number().int().min(1).max(8), force: z.boolean() }),
+  output: z.object({ job: JobSchema.nullable(), message: z.string() }),
+});
+
 // ── Cache cleaner ─────────────────────────────────────────────────────
 
 export const CacheEntrySchema = z.object({
