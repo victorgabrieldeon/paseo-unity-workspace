@@ -133,3 +133,18 @@ describe("cache cleaner", () => {
     await expect(cleanCache(project, ["assets"])).rejects.toThrow("desconhecidos");
   });
 });
+
+describe("players", () => {
+  test("finds players under Builds and skips Unity sidecar folders", async () => {
+    const { listPlayers } = await import("./players");
+    await mkdir(join(project, "Builds", "Linux", "Game_Data", "Nested"), { recursive: true });
+    await mkdir(join(project, "Builds", "Windows"), { recursive: true });
+    await writeFile(join(project, "Builds", "Linux", "Game.x86_64"), "");
+    await writeFile(join(project, "Builds", "Linux", "Game_Data", "Nested", "Fake.x86_64"), "");
+    await writeFile(join(project, "Builds", "Windows", "Game.exe"), "");
+    await writeFile(join(project, "Builds", "Windows", "UnityCrashHandler64.exe"), "");
+    const settings = { projectRoots: [], editorRoots: [], buildOutputDir: "Builds", useUnityCli: false };
+    const { players } = await listPlayers(project, settings);
+    expect(players.map((player) => `${player.folder}/${player.name}`).sort()).toEqual(["Linux/Game.x86_64", "Windows/Game.exe"]);
+  });
+});

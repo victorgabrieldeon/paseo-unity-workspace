@@ -1,13 +1,14 @@
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { chmod, mkdir, readdir } from "node:fs/promises";
+import { mkdir, readdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { BuildMethod, BuildProfile, BuildRecipe, BuildTarget, Job } from "../shared/contracts";
 import type { UnitySettings } from "../shared/settings";
 import { resolveEditor } from "./editors";
 import { exists, isInside, readTextOrNull } from "./fsutil";
 import { appendLog, createJob, finishJob, getJob, runningJob, snapshot, type JobRecord } from "./jobs";
-import { childEnv, launchDetached } from "./launch";
+import { childEnv } from "./launch";
+import { launchPlayer, newestPlayerSince } from "./players";
 import { requireEditor } from "./manager";
 import { editorsForProject, forgetRunningEditors } from "./processes";
 import { requireProject } from "./project";
@@ -163,12 +164,12 @@ export async function startBuild(projectPath: string, recipe: BuildRecipe, setti
   const record = createJob("build", project.path, title, { logPath, artifactPath });
   const fullArgs = ["-batchmode", "-quit", "-projectPath", project.path, "-logFile", "-", ...args];
   appendLog(record, `$ ${editor.executable} ${fullArgs.join(" ")}`);
-  runUnity(record, editor.executable, fullArgs, project.path, logPath);
+  runUnity(record, editor.executable, fullArgs, project.path, logPath, recipe.kind === "method" ? outputRoot : null);
   forgetRunningEditors();
   return snapshot(record);
 }
 
-function runUnity(record: JobRecord, executable: string, args: string[], cwd: string, logPath: string): void {
+function runUnity(record: JobRecord, executable: string, args: string[], cwd: string, logPath: string, findArtifactIn: string | null): void {
   const log = createWriteStream(logPath, { flags: "a" });
   const child = spawn(executable, args, { cwd, env: childEnv(), stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32" });
   record.child = child;
@@ -197,7 +198,16 @@ function runUnity(record: JobRecord, executable: string, args: string[], cwd: st
     forgetRunningEditors();
     if (record.job.state !== "running") return;
     if (code === 0) {
-      finishJob(record, "succeeded", "Build concluído.", 0);
+      if (findArtifactIn === null) {
+        finishJob(record, "succeeded", "Build concluído.", 0);
+        return;
+      }
+      void newestPlayerSince(findArtifactIn, Date.parse(record.job.startedAt))
+        .catch(() => null)
+        .then((artifact) => {
+          record.job.artifactPath = artifact;
+          finishJob(record, "succeeded", "Build concluído.", 0);
+        });
       return;
     }
     const exit = signal === null ? `Unity encerrou com código ${code ?? "?"}` : `Unity encerrou com sinal ${signal}`;
@@ -212,14 +222,8 @@ export async function launchArtifact(jobId: string): Promise<{ pid: number | nul
   const artifact = record.job.artifactPath;
   if (record.job.state !== "succeeded" || artifact === null) throw new Error("Este build não gerou um executável conhecido.");
   if (!(await exists(artifact))) throw new Error(`Executável não encontrado: ${artifact}`);
-  const directory = dirname(artifact);
-  if (process.platform === "linux" && artifact.endsWith(".x86_64")) {
-    await chmod(artifact, 0o755);
-    return { pid: await launchDetached(artifact, [], directory), message: "Player iniciado." };
-  }
-  if (process.platform === "win32" && artifact.endsWith(".exe")) return { pid: await launchDetached(artifact, [], directory), message: "Player iniciado." };
-  if (process.platform === "darwin" && artifact.endsWith(".app")) return { pid: await launchDetached("open", ["-n", artifact], directory), message: "Player iniciado." };
-  throw new Error("Este build é de outra plataforma e não pode ser executado nesta máquina.");
+  const { pids, message } = await launchPlayer(artifact);
+  return { pid: pids[0] ?? null, message };
 }
 
 export function safeFileName(value: string): string {

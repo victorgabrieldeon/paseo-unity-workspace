@@ -1,10 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { type PluginWorkspacePanelProps, useRpc } from "@getpaseo/plugin/client";
-import { copyText, Icon, useToast } from "@getpaseo/plugin/client/react-native";
+import { copyText, Icon, TextInput, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { BuildOptionsRpc, CancelJobRpc, LaunchArtifactRpc, ListJobsRpc, StartBuildRpc, type BuildRecipe, type Job, type UnityProject } from "../shared/contracts";
+import { BuildOptionsRpc, CancelJobRpc, LaunchArtifactRpc, LaunchPlayerRpc, ListJobsRpc, ListPlayersRpc, StartBuildRpc, type BuildRecipe, type Job, type Player, type UnityProject } from "../shared/contracts";
 import { formatDuration } from "../shared/format";
 import { PanelShell, isProjectOpen, statusKey, useProjectStatus } from "./project";
 import { Button, Chip, LogView, Section, StatusDot, errorMessage, type Styles } from "./ui";
@@ -73,6 +73,7 @@ function BuildLauncher({ project, theme, styles }: { readonly project: UnityProj
         </View>
       ) : null}
       {running ? <RunningJob job={running} project={project} theme={theme} styles={styles} /> : null}
+      <Players project={project} lastFinished={history[0]?.endedAt ?? null} theme={theme} styles={styles} />
       {optionsQuery.isPending ? <ActivityIndicator color={theme.colors.foregroundMuted} /> : null}
       {optionsQuery.error ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage(optionsQuery.error)}</Text> : null}
       {data ? (
@@ -216,5 +217,74 @@ function FinishedJob({ job, theme, styles }: { readonly job: Job; readonly theme
         </>
       ) : null}
     </View>
+  );
+}
+
+const WINDOWED_ARGS = "-screen-fullscreen 0 -screen-width 1280 -screen-height 720";
+const PLATFORM_LABELS: Record<Player["platform"], string> = { linux: "Linux", windows: "Windows", macos: "macOS" };
+
+function Players({ project, lastFinished, theme, styles }: { readonly project: UnityProject; readonly lastFinished: string | null; readonly theme: PluginTheme; readonly styles: Styles }) {
+  const list = useRpc(ListPlayersRpc);
+  const launch = useRpc(LaunchPlayerRpc);
+  const toast = useToast();
+  // lastFinished in the key refreshes the list as soon as a build ends.
+  const query = useQuery({ queryKey: ["unity", "players", project.path, lastFinished], queryFn: () => list({ projectPath: project.path }), refetchInterval: 15_000 });
+  const [args, setArgs] = useState("");
+  const [windowed, setWindowed] = useState(true);
+  const [instances, setInstances] = useState(1);
+  const mutation = useMutation({
+    mutationFn: (player: Player) => launch({ projectPath: project.path, playerPath: player.path, args: [windowed ? WINDOWED_ARGS : "", args].join(" ").trim(), instances }),
+    onSuccess: (result) => toast.show(result.message, { variant: "success" }),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const players = query.data?.players ?? [];
+  return (
+    <Section title="Rodar no PC" hint={`Players encontrados em ${query.data?.root ?? "Builds"}/, do mais novo para o mais antigo.`} trailing={<Button label="Atualizar" icon="RefreshCw" small busy={query.isFetching} onPress={() => void query.refetch()} styles={styles} theme={theme} />} styles={styles}>
+      {query.error ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage(query.error)}</Text> : null}
+      {query.isSuccess && players.length === 0 ? <Text style={styles.muted}>Nenhum player buildado ainda. Faça um build abaixo.</Text> : null}
+      {players.length > 0 ? (
+        <>
+          <View style={styles.inline}>
+            <Chip label="Em janela 1280×720" icon="AppWindow" active={windowed} onPress={() => setWindowed((value) => !value)} styles={styles} theme={theme} />
+            {[1, 2, 3, 4].map((count) => (
+              <Chip key={count} label={count === 1 ? "1 instância" : `${count} instâncias`} icon={count === 1 ? "User" : "Users"} active={instances === count} onPress={() => setInstances(count)} styles={styles} theme={theme} />
+            ))}
+          </View>
+          <TextInput
+            value={args}
+            onChangeText={setArgs}
+            placeholder="Argumentos extras (ex.: -logFile - -uisnapshot)"
+            placeholderTextColor={theme.colors.foregroundMuted}
+            accessibilityLabel="Argumentos extras do player"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
+          <View style={styles.list}>
+            {players.map((player, index) => (
+              <View key={player.path} style={[styles.row, index > 0 && styles.rowDivider]}>
+                <Icon name={player.platform === "windows" ? "Monitor" : player.platform === "macos" ? "Apple" : "Terminal"} size={16} color={player.runnable ? theme.colors.accent : theme.colors.foregroundMuted} />
+                <View style={styles.grow}>
+                  <Text style={styles.rowTitle}>{player.folder}/{player.name}</Text>
+                  <Text style={styles.small}>{PLATFORM_LABELS[player.platform]} · {new Date(player.modifiedAt).toLocaleString()}</Text>
+                </View>
+                <Button
+                  label={player.runnable ? "Rodar" : "Outra plataforma"}
+                  icon={player.runnable ? "Play" : undefined}
+                  small
+                  primary={player.runnable}
+                  disabled={!player.runnable}
+                  busy={mutation.isPending && mutation.variables?.path === player.path}
+                  onPress={() => mutation.mutate(player)}
+                  styles={styles}
+                  theme={theme}
+                  accessibilityLabel={`Rodar ${player.folder}/${player.name}`}
+                />
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+    </Section>
   );
 }

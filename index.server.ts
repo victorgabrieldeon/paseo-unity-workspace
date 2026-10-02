@@ -8,6 +8,8 @@ import {
   DetectProjectsRpc,
   InstallParrelSyncRpc,
   LaunchArtifactRpc,
+  LaunchPlayerRpc,
+  ListPlayersRpc,
   ListClonesRpc,
   ListJobsRpc,
   ListProjectsRpc,
@@ -27,6 +29,7 @@ import { createClone, deleteClone, installParrelSync, listClones, openInstances,
 import { cancelAll, cancelJob, listJobs } from "./server/jobs";
 import { listProjects, openProject, projectStatus } from "./server/manager";
 import { detectProjects } from "./server/project";
+import { launchProjectPlayer, listPlayers } from "./server/players";
 import { listScenes, openScene } from "./server/scenes";
 
 export default function contribute(server: PluginServerContext) {
@@ -51,6 +54,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(BuildOptionsRpc, async ({ projectPath }) => buildOptions(projectPath, await settings()));
   server.handle(StartBuildRpc, async ({ projectPath, recipe }) => startBuild(projectPath, recipe, await settings()));
   server.handle(LaunchArtifactRpc, ({ jobId }) => launchArtifact(jobId));
+  server.handle(ListPlayersRpc, async ({ projectPath }) => listPlayers(projectPath, await settings()));
+  server.handle(LaunchPlayerRpc, async ({ projectPath, playerPath, args, instances }) => launchProjectPlayer(projectPath, playerPath, args, instances, await settings()));
 
   server.handle(ScanCacheRpc, ({ projectPath }) => scanCache(projectPath));
   server.handle(CleanCacheRpc, ({ projectPath, ids }) => cleanCache(projectPath, ids));

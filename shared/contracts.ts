@@ -189,6 +189,27 @@ export const LaunchArtifactRpc = defineRpc({
   output: z.object({ pid: z.number().int().nullable(), message: z.string() }),
 });
 
+export const PlayerSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  folder: z.string(),
+  platform: z.enum(["linux", "windows", "macos"]),
+  runnable: z.boolean(),
+  modifiedAt: z.number(),
+});
+
+export const ListPlayersRpc = defineRpc({
+  name: "unity.players.list",
+  input: ProjectInputSchema,
+  output: z.object({ root: z.string(), players: z.array(PlayerSchema) }),
+});
+
+export const LaunchPlayerRpc = defineRpc({
+  name: "unity.players.launch",
+  input: ProjectInputSchema.extend({ playerPath: z.string().min(1), args: z.string().max(500), instances: z.number().int().min(1).max(8) }),
+  output: z.object({ pids: z.array(z.number().int().nullable()), message: z.string() }),
+});
+
 // ── Cache cleaner ─────────────────────────────────────────────────────
 
 export const CacheEntrySchema = z.object({
@@ -287,3 +308,4 @@ export type BuildMethod = z.output<typeof BuildMethodSchema>;
 export type BuildProfile = z.output<typeof BuildProfileSchema>;
 export type CacheEntry = z.output<typeof CacheEntrySchema>;
 export type Clone = z.output<typeof CloneSchema>;
+export type Player = z.output<typeof PlayerSchema>;

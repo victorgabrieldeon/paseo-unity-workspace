@@ -147,3 +147,16 @@ describe("path safety", () => {
     expect(isInside("/p", "/pq")).toBe(false);
   });
 });
+
+describe("players", () => {
+  test("recognizes player executables and where they can run", async () => {
+    const { playerPlatform, runnableHere } = await import("./players");
+    expect(playerPlatform("GetOut.x86_64")).toBe("linux");
+    expect(playerPlatform("GetOut.exe")).toBe("windows");
+    expect(playerPlatform("UnityCrashHandler64.exe")).toBeNull();
+    expect(playerPlatform("Game.app")).toBe("macos");
+    expect(playerPlatform("UnityPlayer.so")).toBeNull();
+    expect(runnableHere("linux", "linux")).toBe(true);
+    expect(runnableHere("windows", "linux")).toBe(false);
+  });
+});
