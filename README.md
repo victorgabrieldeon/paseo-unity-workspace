@@ -38,10 +38,10 @@ Configurações → Plugins → unity-workspace:
 ## Instalação
 
 ```bash
-git clone https://github.com/victorgabrieldeon/paseo-unity-workspace
-cd paseo-unity-workspace && npm install
-paseo plugin install "$PWD"
+paseo plugin install github:victorgabrieldeon/paseo-unity-workspace
 ```
+
+Para atualizar depois: `paseo plugin update unity-workspace`.
 
 Requer Paseo >= 0.10.2 com plugins habilitados (Settings → Plugins) e o Unity instalado pelo Unity Hub.
 
