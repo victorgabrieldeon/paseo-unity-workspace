@@ -170,3 +170,39 @@ describe("quick play target", () => {
     expect(hostTarget("aix")).toBeNull();
   });
 });
+
+describe("Unity Version Control", () => {
+  test("parses the workspace header", async () => {
+    const { parseStatusHeader } = await import("./uvcs");
+    expect(parseStatusHeader("/main@get-out/get-out@acme@unity (cs:318 - head)\n")).toEqual({ branch: "/main", repository: "get-out/get-out@acme@unity", changeset: 318 });
+    expect(parseStatusHeader("/main/task-12@game@local (cs:5 - head)")?.branch).toBe("/main/task-12");
+    expect(parseStatusHeader("garbage")).toBeNull();
+  });
+
+  test("parses machine-readable status lines relative to the project", async () => {
+    const { parseStatusLines } = await import("./uvcs");
+    const text = "STATUS 318 get-out/get-out acme@unity\nCH /p/Assets/Scenes/Menu.unity False NO_MERGES\nAD /p/Assets/My Script.cs False NO_MERGES\nPR /p/Assets/notes.txt\n";
+    expect(parseStatusLines(text, "/p")).toEqual([
+      { code: "CH", label: "Alterado", path: "Assets/Scenes/Menu.unity", unityKind: "scene" },
+      { code: "AD", label: "Adicionado", path: "Assets/My Script.cs", unityKind: "script" },
+      { code: "PR", label: "Privado", path: "Assets/notes.txt", unityKind: "other" },
+    ]);
+  });
+
+  test("flags assets added or deleted without their .meta", async () => {
+    const { metaProblems } = await import("./uvcs");
+    const change = (code: string, path: string) => ({ code, label: code, path, unityKind: "other" as const });
+    expect(metaProblems([change("AD", "Assets/A.cs"), change("AD", "Assets/A.cs.meta"), change("AD", "Assets/B.png"), change("DE", "Assets/C.prefab.meta"), change("CH", "Assets/D.cs")])).toEqual([
+      "Assets/B.png sem .meta",
+      "Assets/C.prefab.meta sem Assets/C.prefab",
+    ]);
+  });
+
+  test("parses multi-line changeset comments and locks", async () => {
+    const { parseChangesets, parseLocks } = await import("./uvcs");
+    const text = "@@PASEO-CS@@318|~|2026-10-03T10:52:07|~|ana@x.com|~|Add packs\n\nCo-Authored-By: bot|~|x@@PASEO-CS@@317|~|2026-10-03T10:51:29|~|bob@x.com|~|WIP";
+    expect(parseChangesets(text).map((cs) => [cs.id, cs.owner, cs.title])).toEqual([[318, "ana@x.com", "Add packs"], [317, "bob@x.com", "WIP"]]);
+    expect(parseChangesets(text)[0]?.comment).toBe("Add packs\n\nCo-Authored-By: bot|~|x");
+    expect(parseLocks("guid-1|~|ana@x.com|~|ws-ana|~|/Assets/Scenes/Menu.unity\n")).toEqual([{ owner: "ana@x.com", workspace: "ws-ana", path: "Assets/Scenes/Menu.unity" }]);
+  });
+});

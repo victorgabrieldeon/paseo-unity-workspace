@@ -22,6 +22,8 @@ import {
   ScanCacheRpc,
   SetCloneArgumentRpc,
   StartBuildRpc,
+  VcsChangesetFilesRpc,
+  VcsOverviewRpc,
 } from "./shared/contracts";
 import { unitySettings, type UnitySettings } from "./shared/settings";
 import { buildOptions, launchArtifact, quickPlay, startBuild } from "./server/build";
@@ -33,6 +35,7 @@ import { detectProjects } from "./server/project";
 import { launchProjectPlayer, listPlayers } from "./server/players";
 import { splitCommandLine } from "./server/processes";
 import { listScenes, openScene } from "./server/scenes";
+import { changesetFiles, vcsOverview } from "./server/uvcs";
 
 export default function contribute(server: PluginServerContext) {
   const settingsHandle = server.registerSettings(unitySettings);
@@ -59,6 +62,9 @@ export default function contribute(server: PluginServerContext) {
   server.handle(QuickPlayRpc, async ({ projectPath, args, instances, force }) => quickPlay(projectPath, splitCommandLine(args), instances, force, await settings()));
   server.handle(ListPlayersRpc, async ({ projectPath }) => listPlayers(projectPath, await settings()));
   server.handle(LaunchPlayerRpc, async ({ projectPath, playerPath, args, instances }) => launchProjectPlayer(projectPath, playerPath, args, instances, await settings()));
+
+  server.handle(VcsOverviewRpc, ({ projectPath }) => vcsOverview(projectPath));
+  server.handle(VcsChangesetFilesRpc, async ({ projectPath, changeset }) => ({ files: await changesetFiles(projectPath, changeset) }));
 
   server.handle(ScanCacheRpc, ({ projectPath }) => scanCache(projectPath));
   server.handle(CleanCacheRpc, ({ projectPath, ids }) => cleanCache(projectPath, ids));

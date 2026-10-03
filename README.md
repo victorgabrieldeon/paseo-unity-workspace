@@ -1,6 +1,6 @@
 # unity-workspace
 
-Cockpit Unity para o Paseo. Um plugin com cinco ferramentas que compartilham a detecção de projeto, editor e processos.
+Cockpit Unity para o Paseo. Um plugin com seis ferramentas que compartilham a detecção de projeto, editor e processos.
 
 **▶ Jogar sem abrir o Unity**: nas abas **Unity** e **Unity Build** (ou `/unity-play [jogadores]`). Faz um build incremental em batch mode para esta máquina em `Builds/QuickPlay/` e abre o jogo, em janela e com 1 a 4 jogadores. Se nada mudou em Assets, Packages ou ProjectSettings desde o último Jogar, abre na hora, sem buildar.
 
@@ -10,13 +10,14 @@ Cockpit Unity para o Paseo. Um plugin com cinco ferramentas que compartilham a d
 | **Build Launcher** | Aba **Unity Build** | Descobre métodos de build do projeto (estáticos públicos que chamam `BuildPipeline`, com o rótulo do `[MenuItem]` e a marca Development/Release), Build Profiles do Unity 6 e players Linux/Windows/macOS. Roda em batch mode com log ao vivo, erros destacados, cancelamento e histórico. Seção **Rodar no PC**: lista os players em `Builds/` e roda com um clique (em janela, 1 a 4 instâncias, argumentos extras). |
 | **Scene Launcher** | Aba **Cenas** (também no Explorer) | Lista as cenas com a ordem do Build Settings primeiro, filtro por nome e pasta. Abre o Unity já na cena; com o Editor aberto e a Unity CLI conectada, troca de cena no próprio Editor. |
 | **ParrelSync Manager** | Aba **ParrelSync** | Cria clones no formato do ParrelSync (`<projeto>_clone_N`, `.clone`, `.parrelsyncarg`, `Assets`/`ProjectSettings` linkados, `Packages` e `Library` copiados), edita o argumento, abre todas as instâncias e remove clones sem tocar no original. Adiciona o pacote ao manifest. |
+| **Version Control** | Aba **Version Control** (também no Explorer) | Visualização do Unity Version Control (Plastic) via `cm`: branch e changeset do workspace, changesets para baixar, mudanças pendentes por tipo (cenas, prefabs, scripts, .meta), alerta de par `.meta` faltando, locks (avisa quando você alterou um arquivo travado), histórico de changesets com os arquivos e branches. Só leitura. |
 | **Cache Cleaner** | Aba **Unity Cache** | Mede Library, Temp, obj, Bee, ScriptAssemblies, shader cache, Burst, IL2CPP, PackageCache, Logs e projetos do IDE. Presets leve/completa, confirmação e recusa com o Editor aberto. Nunca segue symlinks nem toca em Assets, Packages, ProjectSettings ou UserSettings. |
 
 ## Atalhos
 
-- **Ctrl/⌘K**: `Unity: projetos`, `Unity: painel do projeto`, `Unity: build`, `Unity: cenas`, `Unity: clones ParrelSync`, `Unity: limpar cache`, `Unity: jogar (sem abrir o Editor)`, `Unity: abrir projeto no Editor`, `Unity: configurações`.
+- **Ctrl/⌘K**: `Unity: projetos`, `Unity: painel do projeto`, `Unity: build`, `Unity: cenas`, `Unity: clones ParrelSync`, `Unity: limpar cache`, `Unity: Version Control`, `Unity: jogar (sem abrir o Editor)`, `Unity: abrir projeto no Editor`, `Unity: configurações`.
 - Composer:
-  - `/unity [build|cenas|clones|cache]` abre o painel.
+  - `/unity [build|cenas|clones|cache|vcs]` abre o painel.
   - `/unity-play [1-4]` joga sem abrir o Editor.
   - `/unity-open` abre o projeto no Editor.
   - `/unity-scene <nome>` abre o Unity na cena (busca pelo nome; cenas do build primeiro).

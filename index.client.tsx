@@ -8,6 +8,7 @@ import { WINDOWED_ARGS } from "./client/play";
 import { ProjectsSurface } from "./client/projects";
 import { ScenesPanel } from "./client/scenes";
 import { SettingsScreen } from "./client/settings";
+import { VcsPanel } from "./client/vcs";
 import { BuildOptionsRpc, DetectProjectsRpc, ListScenesRpc, OpenProjectRpc, OpenSceneRpc, QuickPlayRpc, StartBuildRpc, type BuildRecipe, type UnityProject } from "./shared/contracts";
 
 const PANEL_ALIASES: Record<string, PanelId> = {
@@ -23,6 +24,9 @@ const PANEL_ALIASES: Record<string, PanelId> = {
   parrelsync: PANELS.clones,
   cache: PANELS.cache,
   limpar: PANELS.cache,
+  vcs: PANELS.vcs,
+  plastic: PANELS.vcs,
+  uvcs: PANELS.vcs,
 };
 
 const TARGET_ALIASES: Record<string, BuildRecipe> = {
@@ -61,6 +65,7 @@ export default function contribute(client: PluginClientContext) {
     client.addWorkspacePanel({ id: PANELS.scenes, title: "Cenas", icon: "Clapperboard", context: "workspace", locations: ["workspace", "explorer"], Component: ScenesPanel }),
     client.addWorkspacePanel({ id: PANELS.clones, title: "ParrelSync", icon: "Users", context: "workspace", Component: ClonesPanel }),
     client.addWorkspacePanel({ id: PANELS.cache, title: "Unity Cache", icon: "Trash2", context: "workspace", Component: CachePanel }),
+    client.addWorkspacePanel({ id: PANELS.vcs, title: "Version Control", icon: "GitBranch", context: "workspace", locations: ["workspace", "explorer"], Component: VcsPanel }),
 
     client.addCommandCenterItem({ id: "projects", title: "Unity: projetos", icon: "Gamepad2", keywords: ["unity", "hub", "editor"], context: "global", onSelect: ({ openSurface }) => openSurface("projects") }),
     client.addCommandCenterItem({ id: "settings", title: "Unity: configurações", icon: "Settings2", keywords: ["unity"], context: "global", onSelect: ({ openSettings }) => openSettings("settings") }),
@@ -69,6 +74,7 @@ export default function contribute(client: PluginClientContext) {
     client.addCommandCenterItem({ id: "scenes", title: "Unity: cenas", icon: "Clapperboard", keywords: ["unity", "scene", "cena"], context: "workspace", onSelect: ({ openPanel }) => openPanel(PANELS.scenes) }),
     client.addCommandCenterItem({ id: "clones", title: "Unity: clones ParrelSync", icon: "Users", keywords: ["unity", "parrelsync", "multiplayer", "clone"], context: "workspace", onSelect: ({ openPanel }) => openPanel(PANELS.clones) }),
     client.addCommandCenterItem({ id: "cache", title: "Unity: limpar cache", icon: "Trash2", keywords: ["unity", "library", "cache", "temp"], context: "workspace", onSelect: ({ openPanel }) => openPanel(PANELS.cache) }),
+    client.addCommandCenterItem({ id: "vcs", title: "Unity: Version Control", icon: "GitBranch", keywords: ["unity", "plastic", "uvcs", "version control", "changeset", "lock"], context: "workspace", onSelect: ({ openPanel }) => openPanel(PANELS.vcs) }),
     client.addCommandCenterItem({
       id: "open-editor",
       title: "Unity: abrir projeto no Editor",
@@ -85,11 +91,11 @@ export default function contribute(client: PluginClientContext) {
     client.addSlashCommand({
       name: "unity",
       description: "Abre o painel Unity (ou build, cenas, clones, cache)",
-      argumentHint: "[build|cenas|clones|cache]",
+      argumentHint: "[build|cenas|clones|cache|vcs]",
       context: "workspace",
       onSubmit({ args, openPanel }) {
         const panel = PANEL_ALIASES[args.trim().toLowerCase()];
-        if (panel === undefined) throw new Error(`Use /unity, /unity build, /unity cenas, /unity clones ou /unity cache.`);
+        if (panel === undefined) throw new Error(`Use /unity, /unity build, /unity cenas, /unity clones, /unity cache ou /unity vcs.`);
         openPanel(panel);
       },
     }),

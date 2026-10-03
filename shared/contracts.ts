@@ -216,6 +216,40 @@ export const QuickPlayRpc = defineRpc({
   output: z.object({ job: JobSchema.nullable(), message: z.string() }),
 });
 
+// ── Unity Version Control ─────────────────────────────────────────────
+
+export const VcsChangeSchema = z.object({
+  code: z.string(),
+  label: z.string(),
+  path: z.string(),
+  unityKind: z.enum(["scene", "prefab", "script", "meta", "settings", "other"]),
+});
+
+export const VcsChangesetSchema = z.object({ id: z.number().int(), date: z.string(), owner: z.string(), title: z.string(), comment: z.string() });
+
+export const VcsOverviewSchema = z.object({
+  available: z.boolean(),
+  workspace: z.boolean(),
+  header: z.object({ branch: z.string(), repository: z.string(), changeset: z.number().int().nullable() }).nullable(),
+  behind: z.number().int().nullable(),
+  changes: z.array(VcsChangeSchema),
+  truncated: z.boolean(),
+  summary: z.object({ total: z.number().int(), byKind: z.record(z.string(), z.number().int()), byCode: z.record(z.string(), z.number().int()) }),
+  metaProblems: z.array(z.string()),
+  changesets: z.array(VcsChangesetSchema),
+  branches: z.array(z.object({ name: z.string(), owner: z.string(), date: z.string(), headChangeset: z.number().int().nullable() })),
+  locks: z.array(z.object({ owner: z.string(), workspace: z.string(), path: z.string() })),
+  errors: z.array(z.string()),
+});
+
+export const VcsOverviewRpc = defineRpc({ name: "unity.vcs.overview", input: ProjectInputSchema, output: VcsOverviewSchema });
+
+export const VcsChangesetFilesRpc = defineRpc({
+  name: "unity.vcs.changeset",
+  input: ProjectInputSchema.extend({ changeset: z.number().int().nonnegative() }),
+  output: z.object({ files: z.array(VcsChangeSchema) }),
+});
+
 // ── Cache cleaner ─────────────────────────────────────────────────────
 
 export const CacheEntrySchema = z.object({
@@ -315,3 +349,6 @@ export type BuildProfile = z.output<typeof BuildProfileSchema>;
 export type CacheEntry = z.output<typeof CacheEntrySchema>;
 export type Clone = z.output<typeof CloneSchema>;
 export type Player = z.output<typeof PlayerSchema>;
+export type VcsChange = z.output<typeof VcsChangeSchema>;
+export type VcsChangeset = z.output<typeof VcsChangesetSchema>;
+export type VcsOverview = z.output<typeof VcsOverviewSchema>;

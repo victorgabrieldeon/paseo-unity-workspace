@@ -17,6 +17,7 @@ const TOOLS: readonly { id: PanelId; title: string; description: string; icon: s
   { id: PANELS.scenes, title: "Cenas", description: "Abrir o Unity direto numa cena", icon: "Clapperboard" },
   { id: PANELS.clones, title: "ParrelSync", description: "Clones para testar multiplayer", icon: "Users" },
   { id: PANELS.cache, title: "Cache", description: "Library, Temp, obj e afins", icon: "Trash2" },
+  { id: PANELS.vcs, title: "Version Control", description: "Branch, mudanças, locks e changesets", icon: "GitBranch" },
 ];
 
 export function OverviewPanel({ theme, layout, workspaceId }: PluginWorkspacePanelProps) {

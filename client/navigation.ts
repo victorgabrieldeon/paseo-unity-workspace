@@ -6,6 +6,7 @@ export const PANELS = {
   scenes: "unity-scenes",
   clones: "unity-clones",
   cache: "unity-cache",
+  vcs: "unity-vcs",
 } as const;
 
 export type PanelId = (typeof PANELS)[keyof typeof PANELS];
